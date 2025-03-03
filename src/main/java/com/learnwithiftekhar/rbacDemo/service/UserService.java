@@ -1,13 +1,16 @@
 package com.learnwithiftekhar.rbacDemo.service;
 
+import com.learnwithiftekhar.rbacDemo.dto.UserRegistrationDto;
 import com.learnwithiftekhar.rbacDemo.model.Role;
 import com.learnwithiftekhar.rbacDemo.model.User;
 import com.learnwithiftekhar.rbacDemo.repository.RoleRepository;
 import com.learnwithiftekhar.rbacDemo.repository.UserRepository;
 import jakarta.transaction.Transactional;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -22,29 +25,68 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public Optional<User> getUserById(Long id) {
+        return userRepository.findById(id);
+    }
+
+    public Optional<User> getUserByUsername(String username) {
+        return userRepository.findByUsername(username);
+    }
+
     @Transactional
-    public User createUser(User user) {
-        // check if the username already exist
-        if(userRepository.findByUsername(user.getUsername()).isPresent()) {
-            throw new UsernameNotFoundException("Username already exists");
+    public User registerNewUser(UserRegistrationDto userRegistrationDto) {
+
+        // Check if username already exist
+        if (userRepository.existsByUsername(userRegistrationDto.getUsername())) {
+            throw new RuntimeException("Username is already in use");
         }
 
-        // if not exist then we will store the user.
-        // we need to encode the password before saving.
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        // Create new user
+        User user = new User();
+        user.setUsername(userRegistrationDto.getUsername());
+        user.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
 
-        // assign the role
-        // if no role found, then set the default role "USER"
-        Role role = roleRepository.findByName(user.getRole().getName())
-                .orElse(new Role("USER"));
-
-        user.setRole(role);
-
+        // Assign default role (USER)
+        Role userRole = roleRepository.findByName("USER")
+                .orElseThrow(() -> new RuntimeException("Role not found"));
+        user.addRole(userRole);
         return userRepository.save(user);
     }
 
-    public User findByUsername(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Username not found"));
+    @Transactional
+    public void assignRoleToUser(String username, String roleName) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new RuntimeException("Role not found"));
+
+        user.addRole(role);
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void unassignRoleFromUser(String username, String roleName) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new RuntimeException("Role not found"));
+        user.getRoles().remove(role);
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void updateUser(User user) {
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void deleteUser(Long id) {
+        userRepository.deleteById(id);
     }
 }

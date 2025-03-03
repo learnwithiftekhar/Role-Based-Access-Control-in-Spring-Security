@@ -1,5 +1,6 @@
 package com.learnwithiftekhar.rbacDemo.service;
 
+import com.learnwithiftekhar.rbacDemo.model.Permission;
 import com.learnwithiftekhar.rbacDemo.model.Role;
 import com.learnwithiftekhar.rbacDemo.model.User;
 import com.learnwithiftekhar.rbacDemo.repository.UserRepository;
@@ -13,15 +14,16 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 @Service
-public class UserDetailsServiceImpl implements UserDetailsService {
-
+public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
-    public UserDetailsServiceImpl(UserRepository userRepository) {
+    public CustomUserDetailsService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
+
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -31,14 +33,21 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
                 user.getPassword(),
-                getAuthorities(user.getRole())
+                getAuthorities(user.getRoles())
         );
     }
 
-    private Collection<? extends GrantedAuthority> getAuthorities(Role role) {
+    private Collection<? extends GrantedAuthority> getAuthorities(Set<Role> roles) {
         List<GrantedAuthority> authorities = new ArrayList<>();
-        authorities.add(new SimpleGrantedAuthority("ROLE_"+role.getName()));
+
+        for (Role role : roles) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_"+role.getName()));
+
+            for(Permission permission : role.getPermissions()) {
+                authorities.add(new SimpleGrantedAuthority(permission.getName()));
+            }
+        }
+
         return authorities;
     }
-
 }
